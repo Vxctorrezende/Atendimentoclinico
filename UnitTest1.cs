@@ -610,91 +610,390 @@ namespace Atendimento_Clinico
     // ==================== TESTES UNITÁRIOS ====================
     public class UnitTest1
     {
+        /// <summary>
+        /// Método helper para gerar diretório único para cada teste
+        /// </summary>
+        private string CriarDiretorioTeste(string prefixo = "test")
+        {
+            return $"{prefixo}_{Guid.NewGuid().ToString().Substring(0, 8)}";
+        }
+
+        // ==================== TESTES 3.4 - TESTES COM [FACT] ====================
+
+        /// <summary>
+        /// T01: Cadastrar um cliente corretamente
+        /// </summary>
         [Fact]
-        public void TestCadastrarCliente()
+        public void T01_DeveCadastrarClienteCorretamente()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_1");
+            string dirTeste = $"dados_t01_{Guid.NewGuid()}";
+            var sistema = new SistemaAtendimento(dirTeste);
+            string nome = "João Pedro Silva";
+            string telefone = "11987654321";
+            string email = "joao.silva@email.com";
 
             // Act
-            bool resultado = sistema.CadastrarCliente("João Silva", "11999999999", "joao@email.com");
+            bool resultado = sistema.CadastrarCliente(nome, telefone, email);
+            var cliente = sistema.ConsultarCliente(1);
 
             // Assert
             Assert.True(resultado);
-            Assert.Single(sistema.ListarClientes());
-            Assert.Equal("João Silva", sistema.ListarClientes()[0].Nome);
+            Assert.NotNull(cliente);
+            Assert.Equal(nome, cliente.Nome);
+            Assert.Equal(telefone, cliente.Telefone);
+            Assert.Equal(email, cliente.Email);
         }
 
+        /// <summary>
+        /// T02: Cadastrar um chamado
+        /// </summary>
         [Fact]
-        public void TestCadastrarChamado()
+        public void T02_DeveCadastrarChamado()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_2");
-            sistema.CadastrarCliente("Maria Silva", "11988888888", "maria@email.com");
+            var sistema = new SistemaAtendimento("dados_t02");
+            sistema.CadastrarCliente("Maria Santos", "11988888888", "maria@email.com");
+            string descricao = "Sistema fora do ar";
+            int nivelPrioridade = 1;
+            string descricaoPrioridade = "Crítica";
 
             // Act
-            bool resultado = sistema.CadastrarChamado(1, "Problema de conexão", 2, "Alta");
+            bool resultado = sistema.CadastrarChamado(1, descricao, nivelPrioridade, descricaoPrioridade);
+            var chamado = sistema.ConsultarChamado(1);
 
             // Assert
             Assert.True(resultado);
-            Assert.Single(sistema.ListarChamados());
-            Assert.Equal("Problema de conexão", sistema.ListarChamados()[0].Descricao);
+            Assert.NotNull(chamado);
+            Assert.Equal(descricao, chamado.Descricao);
+            Assert.Equal(nivelPrioridade, chamado.Prioridade.Nivel);
+            Assert.Equal(descricaoPrioridade, chamado.Prioridade.Descricao);
+            Assert.Equal(StatusChamado.ABERTO, chamado.Status);
         }
 
+        /// <summary>
+        /// T03: Adicionar chamado à fila
+        /// </summary>
         [Fact]
-        public void TestFilaChamados()
+        public void T03_DeveAdicionarChamadoNaFila()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_3");
-            sistema.CadastrarCliente("Pedro Costa", "11987654321", "pedro@email.com");
-            sistema.CadastrarChamado(1, "Erro ao logar", 1, "Crítica");
-            sistema.CadastrarChamado(1, "Dúvida sobre sistema", 3, "Baixa");
+            var sistema = new SistemaAtendimento("dados_t03");
+            sistema.CadastrarCliente("Carlos Costa", "11986666666", "carlos@email.com");
+            sistema.CadastrarChamado(1, "Erro ao fazer login", 2, "Alta");
 
             // Act
-            var proximoChamado = sistema.ProximoChamadoFila();
+            int tamanhoFilaAntes = sistema.TamanhoFila();
+            sistema.CadastrarChamado(1, "Problema com dados", 3, "Média");
+            int tamanhoFilaDepois = sistema.TamanhoFila();
 
             // Assert
-            Assert.NotNull(proximoChamado);
-            Assert.Equal(1, proximoChamado.Numero);
-            Assert.Equal(2, sistema.TamanhoFila());
+            Assert.Equal(1, tamanhoFilaAntes);
+            Assert.Equal(2, tamanhoFilaDepois);
         }
 
+        /// <summary>
+        /// T04: Retirar o primeiro chamado da fila
+        /// </summary>
         [Fact]
-        public void TestAlterarStatusChamado()
+        public void T04_DeveRetirarPrimeiroChamadoDaFila()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_4");
-            sistema.CadastrarCliente("Ana Santos", "11991111111", "ana@email.com");
-            sistema.CadastrarChamado(1, "Suporte técnico", 2, "Alta");
+            var sistema = new SistemaAtendimento("dados_t04");
+            sistema.CadastrarCliente("Ana Paula", "11985555555", "ana@email.com");
+            sistema.CadastrarChamado(1, "Primeira chamada", 2, "Alta");
+            sistema.CadastrarChamado(1, "Segunda chamada", 3, "Média");
+            int tamanhoFilaAntes = sistema.TamanhoFila();
+
+            // Act
+            var chamadoRemovido = sistema.DequeueChamado();
+            int tamanhoFilaDepois = sistema.TamanhoFila();
+
+            // Assert
+            Assert.NotNull(chamadoRemovido);
+            Assert.Equal(1, chamadoRemovido.Numero);
+            Assert.Equal(2, tamanhoFilaAntes);
+            Assert.Equal(1, tamanhoFilaDepois);
+        }
+
+        /// <summary>
+        /// T05: Adicionar chamado à lista
+        /// </summary>
+        [Fact]
+        public void T05_DeveAdicionarChamadoNaLista()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_t05");
+            sistema.CadastrarCliente("Bruno Ferreira", "11984444444", "bruno@email.com");
+            int tamanhoListaAntes = sistema.ListarChamados().Count;
+
+            // Act
+            sistema.CadastrarChamado(1, "Teste chamado", 2, "Alta");
+            var chamados = sistema.ListarChamados();
+            int tamanhoListaDepois = chamados.Count;
+
+            // Assert
+            Assert.Equal(0, tamanhoListaAntes);
+            Assert.Equal(1, tamanhoListaDepois);
+            Assert.Contains(chamados, c => c.Numero == 1);
+        }
+
+        /// <summary>
+        /// T06: Pesquisar chamado existente
+        /// </summary>
+        [Fact]
+        public void T06_DevePesquisarChamadoExistente()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_t06");
+            sistema.CadastrarCliente("Diana Marques", "11983333333", "diana@email.com");
+            sistema.CadastrarChamado(1, "Chamado para pesquisa", 2, "Alta");
+
+            // Act
+            var chamado = sistema.ConsultarChamado(1);
+
+            // Assert
+            Assert.NotNull(chamado);
+            Assert.Equal(1, chamado.Numero);
+            Assert.Equal("Chamado para pesquisa", chamado.Descricao);
+            Assert.Equal(1, chamado.CodigoCliente);
+        }
+
+        /// <summary>
+        /// T07: Alterar o status de um chamado
+        /// </summary>
+        [Fact]
+        public void T07_DeveAlterarStatusChamado()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_t07");
+            sistema.CadastrarCliente("Eduardo Silva", "11982222222", "eduardo@email.com");
+            sistema.CadastrarChamado(1, "Chamado com status", 2, "Alta");
+            var statusAnterior = sistema.ConsultarChamado(1).Status;
 
             // Act
             bool resultado = sistema.AlterarStatusChamado(1, StatusChamado.EM_ATENDIMENTO);
+            var statusNovo = sistema.ConsultarChamado(1).Status;
 
             // Assert
             Assert.True(resultado);
-            Assert.Equal(StatusChamado.EM_ATENDIMENTO, sistema.ConsultarChamado(1).Status);
+            Assert.Equal(StatusChamado.ABERTO, statusAnterior);
+            Assert.Equal(StatusChamado.EM_ATENDIMENTO, statusNovo);
         }
 
+        /// <summary>
+        /// T08: Registrar uma operação na pilha
+        /// </summary>
         [Fact]
-        public void TestPilhaOperacoes()
+        public void T08_DeveRegistrarOperacaoNaPilha()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_5");
+            var sistema = new SistemaAtendimento("dados_t08");
+            int operacoesAntes = sistema.TamanhoPilhaOperacoes();
 
             // Act
-            sistema.CadastrarCliente("Lucas Oliveira", "11992222222", "lucas@email.com");
+            sistema.CadastrarCliente("Fernanda Lima", "11981111111", "fernanda@email.com");
+            int operacoesDepois = sistema.TamanhoPilhaOperacoes();
+
+            // Assert
+            Assert.Equal(0, operacoesAntes);
+            Assert.Equal(1, operacoesDepois);
+        }
+
+        /// <summary>
+        /// T09: Recuperar a última operação da pilha
+        /// </summary>
+        [Fact]
+        public void T09_DeveRecuperarUltimaOperacaoDaPilha()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_t09");
+            sistema.CadastrarCliente("Gabriel Costa", "11980000000", "gabriel@email.com");
+            sistema.CadastrarChamado(1, "Teste operação", 2, "Alta");
+
+            // Act
             var operacoes = sistema.ListarOperacoes();
+            var ultimaOperacao = operacoes.FirstOrDefault();
 
             // Assert
             Assert.NotEmpty(operacoes);
-            Assert.Contains("cadastrado", operacoes[0].Descricao);
+            Assert.NotNull(ultimaOperacao);
+            Assert.Contains("Chamado", ultimaOperacao.Descricao);
+            Assert.Equal("CADASTRO_CHAMADO", ultimaOperacao.Tipo);
         }
 
+        /// <summary>
+        /// T10: Salvar um chamado no arquivo
+        /// </summary>
         [Fact]
-        public void TestConsultarClienteInexistente()
+        public void T10_DeveSalvarChamadoNoArquivo()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_6");
+            string diretorioDados = "dados_t10";
+            var sistema1 = new SistemaAtendimento(diretorioDados);
+            sistema1.CadastrarCliente("Helena Santos", "11979999999", "helena@email.com");
+            sistema1.CadastrarChamado(1, "Chamado a salvar", 2, "Alta");
+            sistema1.SalvarDados();
+
+            // Act
+            var sistema2 = new SistemaAtendimento(diretorioDados);
+
+            // Assert
+            Assert.Single(sistema2.ListarChamados());
+            var chamado = sistema2.ConsultarChamado(1);
+            Assert.NotNull(chamado);
+            Assert.Equal("Chamado a salvar", chamado.Descricao);
+            Assert.Equal(1, chamado.Numero);
+        }
+
+        // ==================== TESTES 3.5 - TESTES COM [THEORY] ====================
+
+        /// <summary>
+        /// Teste com múltiplos cenários para cadastrar chamados com dados válidos
+        /// </summary>
+        [Theory]
+        [InlineData(1, 1, "Problema crítico", "Crítica")]
+        [InlineData(1, 2, "Problema alto", "Alta")]
+        [InlineData(1, 3, "Problema médio", "Média")]
+        [InlineData(1, 4, "Problema baixo", "Baixa")]
+        [InlineData(1, 5, "Problema muito baixo", "Trivial")]
+        public void DeveRegistrarChamadosComDiferentesPrioridades(int codigoCliente, int nivelPrioridade, string descricao, string descricaoPrioridade)
+        {
+            // Arrange
+            string nomeArquivo = $"dados_theory_prioridade_{nivelPrioridade}";
+            var sistema = new SistemaAtendimento(nomeArquivo);
+            sistema.CadastrarCliente("Cliente Theory", "11977777777", "theory@email.com");
+
+            // Act
+            bool resultado = sistema.CadastrarChamado(codigoCliente, descricao, nivelPrioridade, descricaoPrioridade);
+            var chamado = sistema.ConsultarChamado(1);
+
+            // Assert
+            Assert.True(resultado);
+            Assert.NotNull(chamado);
+            Assert.Equal(nivelPrioridade, chamado.Prioridade.Nivel);
+            Assert.Equal(descricaoPrioridade, chamado.Prioridade.Descricao);
+        }
+
+        /// <summary>
+        /// Teste com múltiplos cenários para alterar status de chamados
+        /// </summary>
+        [Theory]
+        [InlineData(StatusChamado.EM_ATENDIMENTO)]
+        [InlineData(StatusChamado.RESOLVIDO)]
+        [InlineData(StatusChamado.CANCELADO)]
+        [InlineData(StatusChamado.ABERTO)]
+        public void DeveAlterarStatusChamadoParadiferentesStates(StatusChamado novoStatus)
+        {
+            // Arrange
+            string nomeArquivo = $"dados_theory_status_{(int)novoStatus}";
+            var sistema = new SistemaAtendimento(nomeArquivo);
+            sistema.CadastrarCliente("Cliente Status", "11976666666", "status@email.com");
+            sistema.CadastrarChamado(1, "Teste status", 2, "Alta");
+
+            // Act
+            bool resultado = sistema.AlterarStatusChamado(1, novoStatus);
+            var chamado = sistema.ConsultarChamado(1);
+
+            // Assert
+            Assert.True(resultado);
+            Assert.Equal(novoStatus, chamado.Status);
+        }
+
+        /// <summary>
+        /// Teste com múltiplos cenários de quantidade de chamados em fila
+        /// </summary>
+        [Theory]
+        [InlineData(1)]
+        [InlineData(3)]
+        [InlineData(5)]
+        [InlineData(10)]
+        [InlineData(20)]
+        public void DeveAdicionarQuantidadeVariavelDeChamadosNaFila(int quantidadeChamados)
+        {
+            // Arrange
+            string nomeArquivo = $"dados_theory_fila_{quantidadeChamados}";
+            var sistema = new SistemaAtendimento(nomeArquivo);
+            sistema.CadastrarCliente("Cliente Fila", "11975555555", "fila@email.com");
+
+            // Act
+            for (int i = 0; i < quantidadeChamados; i++)
+            {
+                sistema.CadastrarChamado(1, $"Chamado {i + 1}", 2, "Alta");
+            }
+            int tamanhoFila = sistema.TamanhoFila();
+
+            // Assert
+            Assert.Equal(quantidadeChamados, tamanhoFila);
+        }
+
+        /// <summary>
+        /// Teste com múltiplos cenários de clientes e seus chamados
+        /// </summary>
+        [Theory]
+        [InlineData(1, "Cliente Um")]
+        [InlineData(2, "Cliente Dois")]
+        [InlineData(3, "Cliente Três")]
+        [InlineData(5, "Cliente Cinco")]
+        [InlineData(10, "Cliente Dez")]
+        public void DeveRegistrarMultiplosClientesComNomesDiferentes(int quantidade, string prefixoNome)
+        {
+            // Arrange
+            string nomeArquivo = $"dados_theory_clientes_{quantidade}";
+            var sistema = new SistemaAtendimento(nomeArquivo);
+
+            // Act
+            for (int i = 1; i <= quantidade; i++)
+            {
+                sistema.CadastrarCliente(
+                    $"{prefixoNome} {i}",
+                    $"1199{i:D8}",
+                    $"cliente{i}@email.com"
+                );
+            }
+            var clientes = sistema.ListarClientes();
+
+            // Assert
+            Assert.Equal(quantidade, clientes.Count);
+            Assert.All(clientes, c => Assert.NotEmpty(c.Nome));
+        }
+
+        /// <summary>
+        /// Teste com múltiplos cenários de descrições de chamados
+        /// </summary>
+        [Theory]
+        [InlineData("Sistema fora do ar")]
+        [InlineData("Erro ao fazer login")]
+        [InlineData("Problema com banco de dados")]
+        [InlineData("Lentidão no sistema")]
+        [InlineData("Dúvida sobre funcionalidade")]
+        public void DeveRegistrarChamadosComDescricoesDiferentes(string descricao)
+        {
+            // Arrange
+            string nomeArquivo = $"dados_theory_descricao_{descricao.GetHashCode()}";
+            var sistema = new SistemaAtendimento(nomeArquivo);
+            sistema.CadastrarCliente("Cliente Desc", "11974444444", "desc@email.com");
+
+            // Act
+            bool resultado = sistema.CadastrarChamado(1, descricao, 2, "Alta");
+            var chamado = sistema.ConsultarChamado(1);
+
+            // Assert
+            Assert.True(resultado);
+            Assert.NotNull(chamado);
+            Assert.Equal(descricao, chamado.Descricao);
+        }
+
+        // ==================== TESTES 3.6 - TESTES NEGATIVOS ====================
+
+        /// <summary>
+        /// Teste negativo: Cliente inexistente
+        /// </summary>
+        [Fact]
+        public void NaoDeveConsultarClienteInexistente()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_cliente_inexistente");
 
             // Act
             var cliente = sistema.ConsultarCliente(999);
@@ -703,73 +1002,332 @@ namespace Atendimento_Clinico
             Assert.Null(cliente);
         }
 
+        /// <summary>
+        /// Teste negativo: Chamado inexistente
+        /// </summary>
         [Fact]
-        public void TestCadastrarChamadoClienteInexistente()
+        public void NaoDeveConsultarChamadoInexistente()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_7");
+            var sistema = new SistemaAtendimento("dados_neg_chamado_inexistente");
+            sistema.CadastrarCliente("Cliente Teste", "11973333333", "teste@email.com");
 
             // Act
-            bool resultado = sistema.CadastrarChamado(999, "Teste", 1, "Normal");
+            var chamado = sistema.ConsultarChamado(999);
+
+            // Assert
+            Assert.Null(chamado);
+        }
+
+        /// <summary>
+        /// Teste negativo: Fila vazia
+        /// </summary>
+        [Fact]
+        public void NaoDeveRetornarChamadoDeFilaVazia()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_fila_vazia");
+
+            // Act
+            var chamado = sistema.ProximoChamadoFila();
+            var chamadoRemovido = sistema.DequeueChamado();
+
+            // Assert
+            Assert.Null(chamado);
+            Assert.Null(chamadoRemovido);
+            Assert.Equal(0, sistema.TamanhoFila());
+        }
+
+        /// <summary>
+        /// Teste negativo: Lista vazia
+        /// </summary>
+        [Fact]
+        public void NaoDeveConterChamadosAoListarListaVazia()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_lista_vazia");
+
+            // Act
+            var chamados = sistema.ListarChamados();
+
+            // Assert
+            Assert.Empty(chamados);
+            Assert.Equal(0, chamados.Count);
+        }
+
+        /// <summary>
+        /// Teste negativo: Pilha vazia
+        /// </summary>
+        [Fact]
+        public void NaoDeveConterOperacoesAoListarPilhaVazia()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_pilha_vazia_novo");
+
+            // Act
+            var operacoes = sistema.ListarOperacoes();
+
+            // Assert
+            Assert.Empty(operacoes);
+            Assert.Equal(0, operacoes.Count);
+            Assert.Equal(0, sistema.TamanhoPilhaOperacoes());
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Cliente com nome vazio
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarClienteComNomeVazio()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_nome_vazio");
+
+            // Act
+            bool resultado = sistema.CadastrarCliente("", "11972222222", "vazio@email.com");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarClientes());
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Cliente com telefone vazio
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarClienteComTelefoneVazio()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_telefone_vazio");
+
+            // Act
+            bool resultado = sistema.CadastrarCliente("Nome Válido", "", "telefone@email.com");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarClientes());
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Cliente com email vazio
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarClienteComEmailVazio()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_email_vazio");
+
+            // Act
+            bool resultado = sistema.CadastrarCliente("Nome Válido", "11971111111", "");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarClientes());
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Chamado com descrição vazia
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarChamadoComDescricaoVazia()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_chamado_desc_vazia");
+            sistema.CadastrarCliente("Cliente Válido", "11970000000", "valido@email.com");
+
+            // Act
+            bool resultado = sistema.CadastrarChamado(1, "", 2, "Alta");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarChamados());
+        }
+
+        /// <summary>
+        /// Teste negativo: Arquivo inexistente - Recuperar dados de arquivo que não existe
+        /// </summary>
+        [Fact]
+        public void DeveCarregarSistemaVazioQuandoArquivosNaoExistem()
+        {
+            // Arrange
+            string diretorioDados = "dados_neg_arquivo_inexistente_novo";
+            if (Directory.Exists(diretorioDados))
+            {
+                Directory.Delete(diretorioDados, true);
+            }
+
+            // Act
+            var sistema = new SistemaAtendimento(diretorioDados);
+            var clientes = sistema.ListarClientes();
+            var chamados = sistema.ListarChamados();
+
+            // Assert
+            Assert.Empty(clientes);
+            Assert.Empty(chamados);
+        }
+
+        /// <summary>
+        /// Teste negativo: Tentativa de alterar chamado inexistente
+        /// </summary>
+        [Fact]
+        public void NaoDeveAlterarStatusChamadoInexistente()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_alterar_inexistente");
+            sistema.CadastrarCliente("Cliente Teste", "11969999999", "teste@email.com");
+
+            // Act
+            bool resultado = sistema.AlterarStatusChamado(999, StatusChamado.EM_ATENDIMENTO);
 
             // Assert
             Assert.False(resultado);
         }
 
+        /// <summary>
+        /// Teste negativo: Cadastrar chamado para cliente inexistente
+        /// </summary>
         [Fact]
-        public void TestPersistenciaDados()
+        public void NaoDeveCadastrarChamadoParaClienteInexistente()
         {
             // Arrange
-            var sistema1 = new SistemaAtendimento("dados_teste_8");
-            sistema1.CadastrarCliente("Teste Persistência", "11999999999", "teste@email.com");
-            sistema1.CadastrarChamado(1, "Teste chamado", 2, "Alta");
-            sistema1.SalvarDados();
+            var sistema = new SistemaAtendimento("dados_neg_chamado_cliente_inexistente");
 
             // Act
-            var sistema2 = new SistemaAtendimento("dados_teste_8");
+            bool resultado = sistema.CadastrarChamado(999, "Chamado inválido", 2, "Alta");
 
             // Assert
-            Assert.Single(sistema2.ListarClientes());
-            Assert.Single(sistema2.ListarChamados());
-            Assert.Equal("Teste Persistência", sistema2.ListarClientes()[0].Nome);
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarChamados());
+            Assert.Equal(0, sistema.TamanhoFila());
         }
 
+        /// <summary>
+        /// Teste negativo: Listar chamados de cliente inexistente
+        /// </summary>
         [Fact]
-        public void TestListarChamadosPorStatus()
+        public void DeveRetornarListaVaziaParaChamadosDeClienteInexistente()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_9");
-            sistema.CadastrarCliente("Cliente Teste", "11999999999", "teste@email.com");
-            sistema.CadastrarChamado(1, "Chamado 1", 1, "Crítica");
-            sistema.CadastrarChamado(1, "Chamado 2", 2, "Alta");
-            sistema.AlterarStatusChamado(1, StatusChamado.EM_ATENDIMENTO);
+            var sistema = new SistemaAtendimento("dados_neg_listar_chamados_cliente_inexistente");
+            sistema.CadastrarCliente("Cliente 1", "11968888888", "cliente1@email.com");
+            sistema.CadastrarChamado(1, "Chamado do cliente 1", 2, "Alta");
 
             // Act
-            var chamadosAbertos = sistema.ListarChamadosPorStatus(StatusChamado.ABERTO);
-            var chamadosAtendimento = sistema.ListarChamadosPorStatus(StatusChamado.EM_ATENDIMENTO);
+            var chamadosCliente999 = sistema.ListarChamadosCliente(999);
 
             // Assert
-            Assert.Single(chamadosAbertos);
-            Assert.Single(chamadosAtendimento);
+            Assert.Empty(chamadosCliente999);
         }
 
+        /// <summary>
+        /// Teste negativo: Listar chamados de status que não existe
+        /// </summary>
         [Fact]
-        public void TestDequeueChamado()
+        public void DeveRetornarListaVaziaAoBuscarChamadosComStatusSemChamados()
         {
             // Arrange
-            var sistema = new SistemaAtendimento("dados_teste_10");
-            sistema.CadastrarCliente("Cliente Queue", "11999999999", "teste@email.com");
-            sistema.CadastrarChamado(1, "Primeiro", 1, "Normal");
-            sistema.CadastrarChamado(1, "Segundo", 2, "Alta");
+            var sistema = new SistemaAtendimento("dados_neg_status_sem_chamados");
+            sistema.CadastrarCliente("Cliente Status", "11967777777", "status@email.com");
+            sistema.CadastrarChamado(1, "Chamado aberto", 2, "Alta");
 
             // Act
-            var chamadoRemovido = sistema.DequeueChamado();
-            int tamanhoAposFila = sistema.TamanhoFila();
+            var chamadosResolvidos = sistema.ListarChamadosPorStatus(StatusChamado.RESOLVIDO);
 
             // Assert
-            Assert.NotNull(chamadoRemovido);
-            Assert.Equal(1, chamadoRemovido.Numero);
-            Assert.Equal(1, tamanhoAposFila);
+            Assert.Empty(chamadosResolvidos);
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Nome com apenas espaços
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarClienteComNomeApenasEspacos()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_nome_espacos");
+
+            // Act
+            bool resultado = sistema.CadastrarCliente("   ", "11966666666", "espacos@email.com");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarClientes());
+        }
+
+        /// <summary>
+        /// Teste negativo: Dados inválidos - Descrição com apenas espaços
+        /// </summary>
+        [Fact]
+        public void NaoDeveCadastrarChamadoComDescricaoApenasEspacos()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_descricao_espacos");
+            sistema.CadastrarCliente("Cliente Válido", "11965555555", "valido@email.com");
+
+            // Act
+            bool resultado = sistema.CadastrarChamado(1, "   ", 2, "Alta");
+
+            // Assert
+            Assert.False(resultado);
+            Assert.Empty(sistema.ListarChamados());
+        }
+
+        /// <summary>
+        /// Teste negativo: Procurar por últimas operações em pilha vazia
+        /// </summary>
+        [Fact]
+        public void DeveRetornarListaVaziaAoSolicitarUltimasOperacoesDePilhaVazia()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_ultimas_operacoes_vazia");
+
+            // Act
+            var operacoes = sistema.ListarUltimasOperacoes(5);
+
+            // Assert
+            Assert.Empty(operacoes);
+        }
+
+        /// <summary>
+        /// Teste negativo: Verificar persistência com arquivo corrompido
+        /// </summary>
+        [Fact]
+        public void DeveCarregarSistemaVazioAoEncontrarArquivoComFormatoInvalido()
+        {
+            // Arrange
+            string diretorioDados = "dados_neg_formato_invalido";
+            if (!Directory.Exists(diretorioDados))
+                Directory.CreateDirectory(diretorioDados);
+
+            // Criar arquivo com conteúdo inválido
+            string caminhoClientes = Path.Combine(diretorioDados, "clientes.txt");
+            File.WriteAllText(caminhoClientes, "dados|invalidos|sem|estrutura|correta|demais");
+
+            // Act
+            var sistema = new SistemaAtendimento(diretorioDados);
+            var clientes = sistema.ListarClientes();
+
+            // Assert
+            Assert.Empty(clientes);
+        }
+
+        /// <summary>
+        /// Teste negativo: Tentar remover chamado de fila vazia múltiplas vezes
+        /// </summary>
+        [Fact]
+        public void NaoDeveRemoverChamadoDeFilaVaziaAposMultiplasTentativas()
+        {
+            // Arrange
+            var sistema = new SistemaAtendimento("dados_neg_dequeue_multiplas");
+
+            // Act
+            var primeiro = sistema.DequeueChamado();
+            var segundo = sistema.DequeueChamado();
+            var terceiro = sistema.DequeueChamado();
+
+            // Assert
+            Assert.Null(primeiro);
+            Assert.Null(segundo);
+            Assert.Null(terceiro);
         }
     }
 }
